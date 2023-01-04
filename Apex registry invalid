@@ -1,1 +1,18 @@
 
+alter session set current_schema = <apex_schema>;
+grant select on sys.dba_dependencies to <apex_schema>;
+grant select on sys.dba_triggers to <apex_schema>;
+drop package wwv_flow_install_wizard;
+drop package apex_mig_projects_update;
+drop view apex_migration_projects;
+drop view apex_migration_acc_projects;
+drop view apex_migration_acc_tables;
+drop view apex_migration_acc_forms;
+drop view apex_migration_acc_rpts;
+drop view apex_migration_acc_queries;
+drop view apex_migration_rev_forms;
+drop view apex_migration_rev_rpts;
+drop view apex_migration_rev_queries;
+drop view apex_migration_rev_tables;
+set serverouput on;
+exec sys.validate_apex;
