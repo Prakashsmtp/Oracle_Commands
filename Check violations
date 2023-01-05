@@ -1,0 +1,1 @@
+SQL> select name,cause,message,status from PDB_PLUG_IN_VIOLATIONs order by name;
