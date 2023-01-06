@@ -1,0 +1,18 @@
+./runInstaller -ignoreSysPrereqs -showProgress -silent       \
+oracle.install.option=INSTALL_DB_SWONLY                      \
+ORACLE_HOSTNAME=${HOSTNAME}                                  \
+UNIX_GROUP_NAME=oinstall                                     \
+INVENTORY_LOCATION=/oracle1/app/oraInventory                     \
+ORACLE_HOME=/oracle1/app/oracle/product/12.1.0.2/db_1			 \
+ORACLE_BASE=/oracle1/app/oracle									 \
+SELECTED_LANGUAGES=en,en_GB                                  \                                  
+oracle.install.db.InstallEdition=EE                          \
+oracle.install.db.OSDBA_GROUP=dba                            \
+oracle.install.db.OSOPER_GROUP=dba                           \
+oracle.install.db.OSBACKUPDBA_GROUP=dba                      \
+oracle.install.db.OSDGDBA_GROUP=dba                          \
+oracle.install.db.OSKMDBA_GROUP=dba                          \
+oracle.install.db.OSRACDBA_GROUP=dba                         \
+SECURITY_UPDATES_VIA_MYORACLESUPPORT=false                   \
+DECLINE_SECURITY_UPDATES=true                                \
+oracle.installer.autoupdates.option=SKIP_UPDATES
