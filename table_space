@@ -1,0 +1,105 @@
+#######################################################################################################################
+SET LINESIZE 20000 TRIM ON TRIMSPOOL ON
+SELECT  FILE_NAME, BLOCKS, TABLESPACE_NAME FROM DBA_DATA_FILES;
+#######################################################################################################################
+
+###########################to check tablespace size with auto extend value
+
+
+
+column tablespa heading 'Tablespace' format a25 print
+column fsize    heading 'FileSizeM'  format 9,999,999
+column ffree    heading 'FileFreeM'  format 9,999,999
+column tspace   heading 'TotalSizeM' format 9,999,999
+column fspace   heading 'TotalFreeM' format 9,999,999
+column fpercen  heading 'TotalFree%' format 999.99
+
+select
+  a.tablespa tablespa,
+  sum(a.fsize)/1048576 fsize,
+  sum(a.ffree)/1048576 ffree,
+  sum(a.tspace)/1048576 tspace,
+  sum(a.fspace)/1048576 fspace,
+  trunc(sum(a.fspace)/sum(a.tspace)*10000)/100 fpercen
+from (
+  select
+    x.tablespa tablespa,
+    x.filename filename,
+    max(x.fsize) fsize,
+    max(x.ffree) ffree,
+    max(x.tspace) tspace,
+    sum(x.fspace) fspace
+  from
+    (select
+      df.tablespace_name tablespa,
+      df.file_name filename,
+      df.bytes fsize,
+      nvl(sum(fs.bytes),0) ffree,
+      df.bytes tspace,
+      nvl(sum(fs.bytes),0) fspace
+    from
+      dba_data_files df,
+     dba_free_space fs
+    where  df.file_id = fs.file_id (+)
+    group by df.tablespace_name, df.file_name, df.bytes
+    union all
+    select
+      df.tablespace_name tablespa,
+      df.file_name filename,
+      0 fsize,
+      0 ffree,
+      df.maxbytes tspace,
+      nvl(df.maxbytes-df.bytes,0) fspace
+    from
+      dba_data_files df
+    where df.autoextensible = 'YES'
+      and df.maxbytes > df.bytes) x
+  group by x.tablespa, x.filename
+ ) a
+group by a.tablespa
+order by 6 desc
+/
+
+####PARTICULAR TABLESPACE 
+set line 200
+Col file_name form a70
+col "MB" form 999,999,999
+col "Max MB" form 999,999,999
+col "Free" form 999,999,999
+set lines 300
+select a.file_name, a.bytes/1024/1024 "MB", sum(b.bytes/1024/1024) "Free", a.maxbytes/1024/1024 "Max MB", a.autoextensible
+from dba_data_files a, dba_free_space b
+where a.tablespace_name = '&TBS_NAME'
+  and a.file_id = b.file_id (+)
+group by a.file_name, a.bytes, a.maxbytes, a.autoextensible;
+#########################################################################################################################
+
+df -k
+df -h
+
+####################################################################################################################################################
+
+SQL> select file_name,bytes/1024/1024/1024,maxbytes/1024/1024/1024,autoextensible from dba_data_files where tablespace_name='TS_AUDIT';
+
+#####################################################################################################################################################
+
+SELECT name, free_mb, total_mb, free_mb/total_mb*100 as percentage FROM v$asm_diskgroup;
+
+for asm disk group
+
+#######################################################################################################################################################
+
+Temp Table Space
+
+set line 200
+select a.tablespace_name,ROUND(a.totsize/1024/1024/1024,0) "Tot Size (MB)",
+  ROUND (NVL(b.used,0)/1024/1024/1024,0) "used (MB)",
+  100 - ROUND(((a.totsize - NVL(b.used,0)) / a.totsize) * 100,0) "% used",
+  ROUND (((a.totsize - NVL(b.used,0)) / a.totsize) * 100,0) "% free"
+  FROM
+(select tablespace_name, sum(bytes) totsize from dba_temp_files GROUP BY 
+ tablespace_name) a,
+(select tablespace_name, sum(BYTES_USED) used from v$temp_space_header
+GROUP BY tablespace_name) b
+WHERE a.tablespace_name=b.tablespace_name (+)
+ORDER BY 1;
