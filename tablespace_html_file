@@ -1,0 +1,59 @@
+Tablespace Usage :
+SET SERVEROUTPUT ON;
+DECLARE
+  l_html_report CLOB;
+
+  PROCEDURE print_line(p_line IN VARCHAR2) IS
+  BEGIN
+    l_html_report := l_html_report || p_line || CHR(10);
+  END print_line;
+
+BEGIN
+  -- Begin the HTML document
+  print_line('<html>');
+  print_line('<head>');
+  print_line('<title>Oracle Tablespace Utilization Report</title>');
+  print_line('</head>');
+  print_line('<body>');
+  print_line('<h1>Oracle Tablespace Utilization Report</h1>');
+  print_line('<table border="1">');
+  print_line('<tr>');
+  print_line('<th>Tablespace Name</th>');
+  print_line('<th>Used Space (MB)</th>');
+  print_line('<th>Total Space (MB)</th>');
+  print_line('<th>Utilization (%)</th>');
+  print_line('</tr>');
+
+  FOR rec IN (SELECT a.tablespace_name,
+                     ROUND(SUM(a.bytes)/1024/1024, 2) used_space_mb,
+                     ROUND(SUM(b.bytes)/1024/1024, 2) total_space_mb,
+                     ROUND(SUM(a.bytes)/SUM(b.bytes) * 100, 2) utilization
+              FROM dba_segments a, dba_data_files b
+              WHERE a.tablespace_name = b.tablespace_name
+              GROUP BY a.tablespace_name)
+  LOOP
+    print_line('<tr>');
+    print_line('<td>' || rec.tablespace_name || '</td>');
+    print_line('<td>' || rec.used_space_mb || '</td>');
+    print_line('<td>' || rec.total_space_mb || '</td>');
+
+    IF rec.utilization < 70 THEN
+      print_line('<td bgcolor="green">' || rec.utilization || '</td>');
+    ELSIF rec.utilization BETWEEN 70 AND 80 THEN
+      print_line('<td bgcolor="yellow">' || rec.utilization || '</td>');
+    ELSE
+      print_line('<td bgcolor="red">' || rec.utilization || '</td>');
+    END IF;
+
+    print_line('</tr>');
+  END LOOP;
+
+  -- End the HTML document
+  print_line('</table>');
+  print_line('</body>');
+  print_line('</html>');
+
+  -- Output the generated HTML
+  DBMS_OUTPUT.PUT_LINE(l_html_report);
+END;
+/
