@@ -1,0 +1,59 @@
+SET SERVEROUTPUT ON;
+DECLARE
+  l_html_report CLOB;
+
+  PROCEDURE print_line(p_line IN VARCHAR2) IS
+  BEGIN
+    l_html_report := l_html_report || p_line || CHR(10);
+  END print_line;
+
+BEGIN
+  -- Begin the HTML document
+  print_line('<html>');
+  print_line('<head>');
+  print_line('<title>Oracle Database Backup Report</title>');
+  print_line('</head>');
+  print_line('<body>');
+  print_line('<h1>Oracle Database Backup Report</h1>');
+  print_line('<table border="1">');
+  print_line('<tr>');
+  print_line('<th>Database Name</th>');
+  print_line('<th>Backup Date</th>');
+  print_line('<th>Backup Age (Days)</th>');
+  print_line('<th>Status</th>');
+  print_line('<th>Color Code</th>');
+  print_line('</tr>');
+
+  FOR rec IN (SELECT
+                d.NAME AS DB_NAME,
+                MAX(b.END_TIME) AS BACKUP_DATE,
+                ROUND((SYSDATE - MAX(b.END_TIME)), 1) AS BACKUP_AGE,
+                b.STATUS,
+                (CASE
+                    WHEN (SYSDATE - MAX(b.END_TIME)) < 2 THEN 'Green'
+                    WHEN (SYSDATE - MAX(b.END_TIME)) BETWEEN 3 AND 7 THEN 'Yellow'
+                    ELSE 'Orange'
+                END) AS COLOR_CODE
+              FROM
+                V$RMAN_BACKUP_JOB_DETAILS b, V$DATABASE d
+              GROUP BY
+                d.NAME, b.STATUS)
+  LOOP
+    print_line('<tr>');
+    print_line('<td>' || rec.DB_NAME || '</td>');
+    print_line('<td>' || TO_CHAR(rec.BACKUP_DATE, 'YYYY-MM-DD HH24:MI:SS') || '</td>');
+    print_line('<td>' || rec.BACKUP_AGE || '</td>');
+    print_line('<td>' || rec.STATUS || '</td>');
+    print_line('<td bgcolor="' || rec.COLOR_CODE || '">' || rec.COLOR_CODE || '</td>');
+    print_line('</tr>');
+  END LOOP;
+
+  -- End the HTML document
+  print_line('</table>');
+  print_line('</body>');
+  print_line('</html>');
+
+  -- Output the generated HTML
+  DBMS_OUTPUT.PUT_LINE(l_html_report);
+END;
+/
