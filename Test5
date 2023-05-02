@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Set variables
+HOSTNAME=$(hostname)
+DATE=$(date '+%Y%m%d')
+SQL_FILE="/tmp/ac5remediation_${HOSTNAME}_${DATE}.sql"
+
+# Create SQL file
+cat > $SQL_FILE <<EOF
+ALTER USER SYSBACKUP ACCOUNT LOCK PASSWORD EXPIRE;
+ALTER USER SYSBACKUP ACCOUNT LOCK PASSWORD EXPIRE;
+ALTER USER SYSBACKUP ACCOUNT LOCK PASSWORD EXPIRE;
+ALTER USER SYSBACKUP ACCOUNT LOCK PASSWORD EXPIRE;
+EOF
+
+# Grant execute privilege
+chmod +x $SQL_FILE
+
+# Get Oracle instances
+ORACLE_INSTANCES=$(cat /etc/oratab | grep -v "^#" | cut -d: -f1)
+
+for instance in $ORACLE_INSTANCES; do
+    ORAENV_ASK=NO
+    ORACLE_SID=$instance
+    . oraenv
+    export ORAENV_ASK
+
+    # Check if it is 11g or 19c
+    DB_VERSION=$(sqlplus -s / as sysdba <<EOF
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF
+SELECT version FROM v\$instance;
+EXIT;
+EOF
+)
+
+    if [[ $DB_VERSION == 11* ]]; then
+        # Execute script for 11g instance
+        sqlplus / as sysdba @$SQL_FILE
+    elif [[ $DB_VERSION == 19* ]]; then
+        # Check if it is a container database
+        CDB=$(sqlplus -s / as sysdba <<EOF
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF
+SELECT cdb FROM v\$database;
+EXIT;
+EOF
+)
+
+        if [[ $CDB == "YES" ]]; then
+            # Execute script on all PDBs
+            PDBS=$(sqlplus -s / as sysdba <<EOF
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF
+SELECT name FROM v\$pdbs;
+EXIT;
+EOF
+)
+
+            for pdb in $PDBS; do
+                sqlplus -s / as sysdba <<EOF
+ALTER SESSION SET CONTAINER=$pdb;
+@$SQL_FILE
+EOF
+            done
+        else
+            # Execute script for non-container 19c database
+            sqlplus / as sysdba @$SQL_FILE
+        fi
+    fi
+done
+
+# Remove SQL file after execution
+rm $SQL_FILE
