@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Login as root
+sudo su - << 'ROOT_END'
+
+# Collect instance names
+instance_names=$(cat /etc/oratab | grep -v "^#" | cut -d: -f1)
+
+# Loop through instance names and set Oracle environment
+for instance_name in $instance_names; do
+    . oraenv <<< "$instance_name"
+    
+    # Connect to SQL*Plus as sysdba and run SQL commands
+    sqlplus -S / as sysdba << 'SQL_END'
+        -- List PDBs
+        SET LINESIZE 300
+        COLUMN name FORMAT A30
+        SPOOL pdb_list.txt
+        SELECT name FROM v$pdbs;
+        SPOOL OFF
+
+        -- Execute script on each PDB
+        SET SERVEROUTPUT ON
+        DECLARE
+            v_script_path VARCHAR2(256) := 'your_script.sql';
+        BEGIN
+            FOR pdb IN (SELECT name FROM v$pdbs) LOOP
+                EXECUTE IMMEDIATE 'ALTER SESSION SET CONTAINER = ' || pdb.name;
+                DBMS_OUTPUT.PUT_LINE('Executing script on PDB: ' || pdb.name);
+                EXECUTE IMMEDIATE '@' || v_script_path;
+            END LOOP;
+        END;
+        /
+    SQL_END
+
+done
+
+# Exit root session
+ROOT_END
