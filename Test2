@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Log in as root
+sudo su - <<'ROOT'
+
+# Switch to the oracle user
+sudo su - oracle <<'ORACLE'
+
+# Create a SQL file named ac5remediation with hostname and date
+sql_file="ac5remediation_$(hostname)_$(date +%Y%m%d).sql"
+
+# Insert the contents into the SQL file
+cat > "$sql_file" <<EOL
+alter user SYSBACKUP account lock password expire;
+
+alter user SySBACKUP account lock password expire;
+
+alter user SYSBACKUP account lock password expire;
+alter user SYSBACKUP account lock password expire;
+EOL
+
+# Collect the instance names and pass it to oraenv
+instance_names=$(cat /etc/oratab | grep -v "^#" | cut -d: -f1)
+
+for instance_name in $instance_names; do
+    . oraenv <<< "$instance_name"
+
+    # Connect to SQL*Plus as sysdba and check the database version
+    db_version=$(sqlplus -s / as sysdba <<EOF
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF
+SELECT version FROM v\$instance;
+EXIT;
+EOF
+)
+
+    # Check if the database version is 11g or 19c
+    if [[ $db_version == 11* ]]; then
+        # Run the SQL script for 11g
+        sqlplus / as sysdba @"$sql_file"
+    elif [[ $db_version == 19* ]]; then
+        # Run the SQL script for 19c and check for PDBs
+        pdb_names=$(sqlplus -s / as sysdba <<EOF
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF
+SELECT name FROM v\$pdbs;
+EXIT;
+EOF
+)
+        if [ -z "$pdb_names" ]; then
+            # If there are no PDBs, just run the script on the CDB
+            sqlplus / as sysdba @"$sql_file"
+        else
+            # If there are PDBs, run the script on each PDB
+            for pdb_name in $pdb_names; do
+                sqlplus -s / as sysdba <<EOF
+ALTER SESSION SET CONTAINER = $pdb_name;
+@$sql_file
+EXIT;
+EOF
+            done
+        fi
+    fi
+done
+
+ORACLE
+ROOT
