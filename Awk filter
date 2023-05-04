@@ -1,0 +1,16 @@
+To use an environment variable as a filter condition in the given AWK command, you can set the environment variable and pass it to the AWK script using the -v option. Here's the modified command:
+
+bash
+Copy code
+export FILTER_KEYWORDS="keyword1,keyword2,keyword3"
+awk -v keywords="$FILTER_KEYWORDS" 'BEGIN {split(keywords, kw_arr, ",")} !(/'${kw_arr[1]}'/ || /'${kw_arr[2]}'/ || /'${kw_arr[3]}'/) {print}' input_file.txt > output_file.txt
+Replace keyword1,keyword2,keyword3 with the comma-separated list of keywords you want to filter.
+
+Here's a breakdown of the command:
+
+export FILTER_KEYWORDS="keyword1,keyword2,keyword3": Set the FILTER_KEYWORDS environment variable to a comma-separated list of keywords you want to filter.
+-v keywords="$FILTER_KEYWORDS": Pass the FILTER_KEYWORDS environment variable as a variable named keywords to the AWK script.
+BEGIN {split(keywords, kw_arr, ",")}: In the BEGIN block, split the keywords variable into an array called kw_arr using , as the delimiter.
+!(/'${kw_arr[1]}'/ || /'${kw_arr[2]}'/ || /'${kw_arr[3]}'/) {print}: Modify the filter condition to use the kw_arr array elements instead of the hardcoded keywords. The print statement will be executed for lines that do not match any of the keywords in the kw_arr array.
+input_file.txt > output_file.txt: Process input_file.txt and redirect the output to output_file.txt.
+After running this command, the output_file.txt file will contain the lines from input_file.txt that do not match any of the specified keywords in the FILTER_KEYWORDS environment variable.
