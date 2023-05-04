@@ -1,0 +1,41 @@
+from flask import Flask, request, jsonify
+import cx_Oracle
+import os
+from transformers import pipeline
+
+app = Flask(__name__)
+app.config["JSON_AS_ASCII"] = False
+
+# Set up the Hugging Face model
+nlp = pipeline("text-generation", model="gpt-2")  # Replace 'gpt-2' with your desired model
+
+# Set up the Oracle Database connection
+oracle_user = os.environ.get("ORACLE_USER")
+oracle_password = os.environ.get("ORACLE_PASSWORD")
+oracle_connection_string = os.environ.get("ORACLE_CONNECTION_STRING")
+
+def connect_to_oracle():
+    return cx_Oracle.connect(user=oracle_user, password=oracle_password, dsn=oracle_connection_string)
+
+@app.route("/generate-text", methods=["POST"])
+def generate_text():
+    data = request.get_json(force=True)
+    prompt = data.get("prompt", "")
+
+    generated_text = nlp(prompt)[0]["generated_text"]
+
+    # Save the generated text in the Oracle database
+    connection = connect_to_oracle()
+    cursor = connection.cursor()
+
+    insert_query = "INSERT INTO generated_texts (prompt, text) VALUES (:1, :2)"
+    cursor.execute(insert_query, (prompt, generated_text))
+
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+    return jsonify({"generated_text": generated_text})
+
+if __name__ == "__main__":
+    app.run(debug=True)
