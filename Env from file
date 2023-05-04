@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Replace "input_file.txt" with the path to your file containing SID and Oracle Home
+input_file="input_file.txt"
+
+while read -r line; do
+    ORACLE_SID=$(echo "$line" | awk '{print $1}')
+    ORACLE_HOME=$(echo "$line" | awk '{print $2}')
+    export ORACLE_SID
+    export ORACLE_HOME
+
+    # Set PATH variable
+    PATH=$ORACLE_HOME/bin:$PATH
+    export PATH
+
+    echo "ORACLE_SID: $ORACLE_SID"
+    echo "ORACLE_HOME: $ORACLE_HOME"
+    echo "PATH: $PATH"
+
+    # Execute your SQL commands or scripts here
+
+done < "$input_file"
