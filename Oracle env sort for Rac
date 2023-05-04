@@ -1,0 +1,33 @@
+# Step 1: Switching to Oracle Account as a database owner
+# Switch to the oracle user
+su - oracle
+
+# Step 2: Execute menu command to collect the database environment details and
+# store it as an output file on /tmp/menuout.txt
+menu -display [all] > /tmp/menuout.txt
+
+# Step 3: Cleaning unwanted data from the menuout.txt
+tail -n +4 /tmp/menuout.txt > /tmp/sortedout.txt
+head -n -1 /tmp/sortedout.txt > /tmp/sortedclean.txt
+
+# Step 4: Omitting the database that belongs to 11g, standby, offline, and Intermediate status
+awk '!(/INTERMEDIATE/ || /PHYSICAL STANDBY/ || /OFFLINE/ || /' $HSTNAME'/) {print}' /tmp/sortedclean.txt > /tmp/sortedenvclean.txt
+awk '(/' $HSTNAME'/) {print}' /tmp/sortedenvclean.txt > /tmp/sortedhostclean.txt
+
+# Step 4.1: Removing the entries not related to this host and do not use FQDN, remove the output based on the hostname
+# (No command provided for this step)
+
+# Step 4.2: Removing more than 1 Unwanted Fields from the /tmp/sortedenvclean.txt
+awk '{for (i=1; i<=NF; i++) if (i != 11) printf "%s%s", $i, (i==NF ? "\n" : OFS)}' /tmp/sortedhostclean.txt > /tmp/filtered4variable.txt
+awk '{print $6, $8}' /tmp/filtered4variable.txt > /tmp/filtered4variable_1.txt
+awk '{print $1, $2}' /tmp/filtered4variable_1.txt > /tmp/filtered4variable_final.txt
+
+# Step 5: Assign $1 as Oracle SID and $2 as Oracle Home from /tmp/filtered4variable_final.txt
+# (No command provided for this step)
+
+# Step 6: Read the file line by line and assign $1 as ORACLE SID and $2 as ORACLE HOME, then start executing SQL commands
+# inside the database. For the next line, exit after completing the last line of the file.
+# Add a global condition: if the database version is 11g, skip the execution.
+# If the database version is 19c and no PDB is found, execute the SQL in CDB.
+# If PDB is found, omit the SEED PDB and execute the script on remaining PDBs.
+# (No command provided for this step)
