@@ -1,0 +1,1 @@
+awk '!(/keyword1/ || /keyword2/ || /keyword3/) {print}' input_file.txt > output_file.txt
