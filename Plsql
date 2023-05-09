@@ -1,0 +1,35 @@
+DECLARE 
+  db_version VARCHAR2(10);
+  count_rows NUMBER;
+BEGIN
+  -- Check Oracle DB version
+  SELECT version INTO db_version FROM v$instance;
+
+  IF db_version LIKE '12.1%' THEN
+    DBMS_OUTPUT.PUT_LINE('Oracle 12.1 version detected.');
+    -- Add your SQL statements for version 12.1
+  ELSIF db_version LIKE '12.2%' THEN
+    DBMS_OUTPUT.PUT_LINE('Oracle 12.2 version detected.');
+    -- Add your SQL statements for version 12.2
+  ELSE
+    DBMS_OUTPUT.PUT_LINE('Other Oracle version detected.');
+    -- Add your SQL statements for other versions
+  END IF;
+
+  -- Check SQL condition
+  SELECT COUNT(*) INTO count_rows FROM your_table;
+
+  IF count_rows > 0 THEN
+    DBMS_OUTPUT.PUT_LINE('There is at least one row in your_table.');
+    -- Add your SQL statements when condition is met
+  ELSE
+    DBMS_OUTPUT.PUT_LINE('There are no rows in your_table.');
+    -- Add your SQL statements when condition is not met
+  END IF;
+EXCEPTION 
+  WHEN NO_DATA_FOUND THEN
+    DBMS_OUTPUT.PUT_LINE('Error: No data found.');
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Error: An unexpected error occurred.');
+END;
+/
