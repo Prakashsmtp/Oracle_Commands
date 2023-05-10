@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Read file into array
+while IFS=: read -r sid oracle_home; do
+    sid_arr+=("$sid")
+    oracle_home_arr+=("$oracle_home")
+done < file.txt
+
+# Display options
+echo "Please select a SID:"
+for i in "${!sid_arr[@]}"; do
+    echo "$(($i+1))) ${sid_arr[$i]}"
+done
+
+# Read user selection
+read -p "Enter your choice: " choice
+choice=$((choice-1)) # to make it 0-indexed
+
+# Set Oracle environment variables
+export ORACLE_SID=${sid_arr[$choice]}
+export ORACLE_HOME=${oracle_home_arr[$choice]}
+export PATH=$ORACLE_HOME/bin:$PATH
+
+# Define SQL commands
+check_db_status="SELECT name, open_mode, database_role FROM v\$database;"
+check_archive_space="SELECT * FROM v\$flash_recovery_area_usage WHERE file_type='ARCHIVED LOG';"
+check_tablespace="SELECT tablespace_name, used_space, tablespace_size, used_percent FROM dba_tablespace_usage_metrics WHERE used_percent > 80;"
+check_backup_status="SELECT session_key, input_type, status, start_time, end_time FROM v\$rman_backup_job_details WHERE status != 'COMPLETED';"
+check_standby_db="SELECT process, status FROM v\$managed_standby WHERE status != 'RUNNING';"
+
+# Define options
+options=("Check database status" "Check archivelog used space and tablespace usage" "Check backup status" "Check if standby DB is configured")
+
+select opt in "${options[@]}"
+do
+    case $opt in
+        "Check database status")
+            echo $(sqlplus -s / as sysdba <<EOF
+            SET HEADING OFF;
+            SET FEEDBACK OFF;
+            $check_db_status
+            exit;
+EOF
+            )
+            ;;
+        "Check archivelog used space and tablespace usage")
+            echo $(sqlplus -s / as sysdba <<EOF
+            SET HEADING OFF;
+            SET FEEDBACK OFF;
+            $check_archive_space
+            $check_tablespace
+            exit;
+EOF
+            )
+            ;;
+        "Check backup status")
+            echo $(sqlplus -s / as sysdba <<EOF
+            SET HEADING OFF;
+            SET FEEDBACK OFF;
+            $check_backup_status
+            exit;
+EOF
+            )
+            ;;
+        "Check if standby DB is configured")
+            echo $(sqlplus -s / as sysdba <<EOF
+            SET HEADING OFF;
+            SET FEEDBACK OFF;
+            $check_standby_db
+            exit;
+EOF
+            )
+            ;;
+        *) echo "Invalid option";;
+    esac
+done
