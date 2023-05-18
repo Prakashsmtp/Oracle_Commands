@@ -1,0 +1,1 @@
+sudo -u oracle find /u01 -type f \( -name "*.trm" -o -name "*.trc" \) -o -type d -name "coredump"
