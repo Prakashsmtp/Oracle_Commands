@@ -9,3 +9,15 @@ if sudo -u oracle find /u01 -type f \( -name "*.trm" -o -name "*.trc" \) | grep 
 else
   echo "No files found."
 fi
+
+#!/bin/bash
+
+# Check if the files exist
+if sudo -u oracle find /u01 -type f \( -name "*.trm" -o -name "*.trc" \) | grep -q "."; then
+  echo "Files found. Removing them..."
+  # Remove the files without prompting for confirmation
+  sudo -u oracle find /u01 -type f \( -name "*.trm" -o -name "*.trc" \) -exec rm -f {} +
+else
+  echo "No files found."
+fi
+
