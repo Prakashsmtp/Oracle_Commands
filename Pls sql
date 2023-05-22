@@ -1,0 +1,24 @@
+CREATE OR REPLACE PROCEDURE execute_script_if_not_11g
+IS
+    v_db_version VARCHAR2(50);
+BEGIN
+    -- Get the database version
+    SELECT version INTO v_db_version FROM v$instance;
+
+    -- Check if the database version is 11g
+    IF v_db_version LIKE '11.%' THEN
+        -- Database is 11g, so skip execution
+        DBMS_OUTPUT.PUT_LINE('Database version is 11g. Skipping execution.');
+    ELSE
+        -- Database is not 11g, execute the script
+        -- Add your script execution code here
+        DBMS_OUTPUT.PUT_LINE('Executing the script...');
+        -- Execute your script logic here
+        -- ...
+        DBMS_OUTPUT.PUT_LINE('Script execution completed.');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error occurred: ' || SQLERRM);
+END;
+/
