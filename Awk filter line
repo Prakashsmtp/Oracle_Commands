@@ -1,0 +1,1 @@
+awk '!/^\/uo1\/app\/oracle\/product\/11/' file.txt
