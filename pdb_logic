@@ -1,0 +1,8 @@
+while read -r pdb_name
+do
+  echo "Connecting to PDB: $pdb_name"
+  
+  sqlplus / as sysdba <<EOF
+  ALTER SESSION SET CONTAINER = $pdb_name;
+  @$sql_file
+EOF
