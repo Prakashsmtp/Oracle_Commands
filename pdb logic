@@ -1,14 +1,14 @@
+
 #!/bin/bash
 
 # Variables
-cdb_connection_string="your_cdb_connection_string"
 sql_script="your_sql_script.sql"
 
-# Command to get the list of PDBs
+# Command to get the list of PDBs, excluding PDB$SEED
 pdb_list=$(sqlplus -s /nolog <<EOF
 connect / as sysdba;
 SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF;
-SELECT pdb_name FROM dba_pdbs;
+SELECT pdb_name FROM dba_pdbs WHERE pdb_name != 'PDB$SEED';
 exit;
 EOF
 )
