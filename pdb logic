@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Variables
+cdb_connection_string="your_cdb_connection_string"
+sql_script="your_sql_script.sql"
+
+# Command to get the list of PDBs
+pdb_list=$(sqlplus -s /nolog <<EOF
+connect / as sysdba;
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF;
+SELECT pdb_name FROM dba_pdbs;
+exit;
+EOF
+)
+
+# Loop over each PDB and execute the SQL script
+for pdb in $pdb_list
+do
+    sqlplus -s /nolog <<EOF
+    connect / as sysdba;
+    ALTER SESSION SET CONTAINER = $pdb;
+    @$sql_script;
+    exit;
+EOF
+done
