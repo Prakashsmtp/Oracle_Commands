@@ -1,0 +1,94 @@
+#!/bin/bash
+
+# Server and DB restriction lists
+restricted_servers=("server1" "server2" "server3")
+restricted_dbs=("db1" "db2" "db3")
+restricted_gg_users=("gg_user1" "gg_user2" "gg_user3")
+
+# Check server restriction
+current_server=$(hostname)
+if [[ " ${restricted_servers[@]} " =~ " ${current_server} " ]]; then
+    echo "This server is restricted. Abandoning execution."
+    exit 1
+fi
+
+# Check for GoldenGate
+if [[ $(ps -ef | grep -i 'GoldenGate' | grep -v 'grep' | wc -l) -gt 0 ]]; then
+    gg_present=true
+    echo "GoldenGate is present on the server."
+else
+    gg_present=false
+fi
+
+# Database details
+oracle_sid_list=$(ps -ef | grep pmon | grep -v grep | awk -F'_' '{ print $NF }')
+
+for oracle_sid in $oracle_sid_list
+do
+    # Check DB restriction
+    if [[ " ${restricted_dbs[@]} " =~ " ${oracle_sid} " ]]; then
+        echo "This database ($oracle_sid) is restricted. Skipping to next."
+        continue
+    fi
+
+    # Set ORACLE_SID
+    export ORACLE_SID=$oracle_sid
+
+    # Run SQL
+    sqlplus / as sysdba <<EOF
+    -- Running on CDB
+    @/path/to/your/sql/script.sql
+
+    -- Get PDBs
+    DECLARE
+        v_pdb_names DBA_PDBS.NAME%TYPE;
+        CURSOR c1 IS SELECT name FROM dba_pdbs;
+    BEGIN
+        OPEN c1;
+        LOOP
+            FETCH c1 INTO v_pdb_names;
+            EXIT WHEN c1%NOTFOUND;
+            EXECUTE IMMEDIATE 'ALTER SESSION SET CONTAINER = ' || v_pdb_names;
+            
+            -- Running on PDBs
+            @/path/to/your/sql/script.sql
+        END LOOP;
+        CLOSE c1;
+    END;
+    /
+
+    -- User account handling
+    SET SERVEROUTPUT ON;
+    DECLARE
+        CURSOR c_users IS SELECT username, account_status, authentication_type FROM dba_users WHERE account_status = 'LOCKED';
+        v_username DBA_USERS.USERNAME%TYPE;
+        v_account_status DBA_USERS.ACCOUNT_STATUS%TYPE;
+        v_auth_type DBA_USERS.AUTHENTICATION_TYPE%TYPE;
+    BEGIN
+        OPEN c_users;
+        LOOP
+            FETCH c_users INTO v_username, v_account_status, v_auth_type;
+            EXIT WHEN c_users%NOTFOUND;
+
+            -- If GoldenGate is present, check the gg_user restriction list
+            IF ('${gg_present}' = 'true' AND " ${restricted_gg_users[@]} " NOT LIKE v_username) THEN
+                IF v_auth_type = 'PASSWORD' THEN
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK PASSWORD EXPIRE';
+                ELSE
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
+                END IF;
+            -- If GoldenGate is not present, proceed normally
+            ELSIF ('${gg_present}' = 'false') THEN
+                IF v_auth_type = 'PASSWORD' THEN
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK PASSWORD EXPIRE';
+                ELSE
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
+                END IF;
+            END IF;
+        END LOOP;
+        CLOSE c_users;
+    END;
+    /
+EOF
+
+done
