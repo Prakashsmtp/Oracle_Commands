@@ -1,0 +1,22 @@
+SELECT
+    MAX((physical_reads + physical_writes) * 8 / 1024) AS "Peak IOPS in MB",
+    MIN((physical_reads + physical_writes) * 8 / 1024) AS "Low IOPS in MB"
+FROM
+    (
+        SELECT
+            b.snap_id,
+            b.begin_interval_time,
+            SUM(DECODE(a.stat_name, 'physical reads', a.value, 0)) physical_reads,
+            SUM(DECODE(a.stat_name, 'physical writes', a.value, 0)) physical_writes
+        FROM
+            dba_hist_sysstat a, dba_hist_snapshot b
+        WHERE 
+            a.stat_name IN ('physical reads', 'physical writes')
+            AND a.dbid = &dbid
+            AND a.instance_number = &instance_number
+            AND a.snap_id = b.snap_id
+            AND b.begin_interval_time BETWEEN ADD_MONTHS(SYSDATE, -12) AND SYSDATE
+        GROUP BY
+            b.snap_id,
+            b.begin_interval_time
+    )
