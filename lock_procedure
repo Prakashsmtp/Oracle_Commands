@@ -1,0 +1,30 @@
+#!/bin/bash
+
+while read user; do
+    output=$(sqlplus / as sysdba <<EOF
+    SET HEADING OFF;
+	col username for a30
+	col account status for a30
+	set lines 150
+	set pages 150 
+	set define off;
+	SET FEEDBACK OFF HEADING OFF VERIFY OFF NEWPAGE NONE TRIMOUT ON TRIMSPOOL ON FLUSH OFF LINESIZE 999
+    SELECT account_status, authentication_type FROM dba_users WHERE username = UPPER('${user}');
+    EXIT;
+EOF
+)
+    account_status=$(echo $output | awk '{print $1}')
+    authentication_type=$(echo $output | awk '{print $2}')
+
+    if [[ "$account_status" == "LOCKED" ]]; then
+        if [[ "$authentication_type" == "NONE" ]]; then
+            echo "User $user is already locked with password authentication none. Nothing to do."
+        else
+            sqlplus / as sysdba <<EOF
+            ALTER USER ${user} ACCOUNT LOCK PASSWORD EXPIRE;
+            EXIT;
+EOF
+            echo "User $user account locked and password expired."
+        fi
+    fi
+done < userlist.txt
