@@ -1,39 +1,65 @@
-#!/bin/bash
+DECLARE
+    v_username VARCHAR2(30);
+    v_status VARCHAR2(30);
+    v_auth_type VARCHAR2(30);
+    v_goldengate_replication VARCHAR2(30);
+BEGIN
+    -- Get the value of the enable_goldengate_replication parameter
+    SELECT value INTO v_goldengate_replication FROM v$parameter WHERE name = 'enable_goldengate_replication';
 
-# Login as root
-sudo su - << 'ROOT_END'
+    -- If enable_goldengate_replication = TRUE then perform operations for one set of users
+    IF v_goldengate_replication = 'TRUE' THEN
+        FOR rec IN (SELECT username, account_status, authentication_type
+                    FROM dba_users
+                    WHERE authentication_type LIKE '%PASSWORD%'
+                    AND username IN ('USER1', 'USER2', 'USER3'))
+        LOOP
+            v_username := rec.username;
+            v_status := rec.account_status;
+            v_auth_type := rec.authentication_type;
 
-# Collect instance names
-instance_names=$(cat /etc/oratab | grep -v "^#" | cut -d: -f1)
+            BEGIN
+                -- This will raise an exception if the user does not exist
+                EXECUTE IMMEDIATE 'SELECT 1 FROM dba_users WHERE username = :1' USING v_username;
 
-# Loop through instance names and set Oracle environment
-for instance_name in $instance_names; do
-    . oraenv <<< "$instance_name"
-    
-    # Connect to SQL*Plus as sysdba and run SQL commands
-    sqlplus -S / as sysdba << 'SQL_END'
-        -- List PDBs
-        SET LINESIZE 300
-        COLUMN name FORMAT A30
-        SPOOL pdb_list.txt
-        SELECT name FROM v$pdbs;
-        SPOOL OFF
+                -- If we're here, the user exists and we can alter the user
+                IF v_auth_type LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' PASSWORD EXPIRE ACCOUNT LOCK';
+                ELSIF v_auth_type NOT LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
+                END IF;
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    NULL; -- User does not exist, do nothing
+            END;
+        END LOOP;
+    -- If enable_goldengate_replication = FALSE then perform operations for another set of users
+    ELSIF v_goldengate_replication = 'FALSE' THEN
+        FOR rec IN (SELECT username, account_status, authentication_type
+                    FROM dba_users
+                    WHERE authentication_type LIKE '%PASSWORD%'
+                    AND username IN ('GGSYS', 'OTHER_USER'))
+        LOOP
+            v_username := rec.username;
+            v_status := rec.account_status;
+            v_auth_type := rec.authentication_type;
 
-        -- Execute script on each PDB
-        SET SERVEROUTPUT ON
-        DECLARE
-            v_script_path VARCHAR2(256) := 'your_script.sql';
-        BEGIN
-            FOR pdb IN (SELECT name FROM v$pdbs) LOOP
-                EXECUTE IMMEDIATE 'ALTER SESSION SET CONTAINER = ' || pdb.name;
-                DBMS_OUTPUT.PUT_LINE('Executing script on PDB: ' || pdb.name);
-                EXECUTE IMMEDIATE '@' || v_script_path;
-            END LOOP;
-        END;
-        /
-    SQL_END
+            BEGIN
+                -- This will raise an exception if the user does not exist
+                EXECUTE IMMEDIATE 'SELECT 1 FROM dba_users WHERE username = :1' USING v_username;
 
-done
-
-# Exit root session
-ROOT_END
+                -- If we're here, the user exists and we can alter the user
+                IF v_auth_type LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' PASSWORD EXPIRE ACCOUNT LOCK';
+                ELSIF v_auth_type NOT LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                    EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
+                END IF;
+            EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                    NULL; -- User does not exist, do nothing
+            END;
+        END LOOP;
+    END IF;
+END;
+/
+EXIT;
