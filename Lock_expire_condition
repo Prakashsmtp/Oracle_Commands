@@ -2,59 +2,45 @@ DECLARE
     v_username VARCHAR2(30);
     v_status VARCHAR2(30);
     v_auth_type VARCHAR2(30);
+    v_goldengate_replication VARCHAR2(30);
 BEGIN
-    FOR rec IN (SELECT username, account_status, authentication_type
-                FROM dba_users
-                WHERE authentication_type LIKE '%PASSWORD%'
-                AND username IN ('USER1', 'USER2', 'USER3', '"C##CVBACKUP"', 'GGSYS'))
+    -- Get the value of the enable_goldengate_replication parameter
+    SELECT value INTO v_goldengate_replication FROM v$parameter WHERE name = 'enable_goldengate_replication';
 
-    LOOP
-        v_username := rec.username;
-        v_status := rec.account_status;
-        v_auth_type := rec.authentication_type;
+    -- If enable_goldengate_replication = TRUE then perform operations for one set of users
+    IF v_goldengate_replication = 'TRUE' THEN
+        FOR rec IN (SELECT username, account_status, authentication_type
+                    FROM dba_users
+                    WHERE authentication_type LIKE '%PASSWORD%'
+                    AND username IN ('USER1', 'USER2', 'USER3'))
+        LOOP
+            v_username := rec.username;
+            v_status := rec.account_status;
+            v_auth_type := rec.authentication_type;
 
-        IF v_auth_type LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
-            EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' PASSWORD EXPIRE ACCOUNT LOCK';
-        ELSIF v_auth_type NOT LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
-            EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
-        END IF;
-    END LOOP;
+            IF v_auth_type LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' PASSWORD EXPIRE ACCOUNT LOCK';
+            ELSIF v_auth_type NOT LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
+            END IF;
+        END LOOP;
+    -- If enable_goldengate_replication = FALSE then perform operations for another set of users
+    ELSIF v_goldengate_replication = 'FALSE' THEN
+        FOR rec IN (SELECT username, account_status, authentication_type
+                    FROM dba_users
+                    WHERE authentication_type LIKE '%PASSWORD%'
+                    AND username IN ('GGSYS', 'OTHER_USER'))
+        LOOP
+            v_username := rec.username;
+            v_status := rec.account_status;
+            v_auth_type := rec.authentication_type;
+
+            IF v_auth_type LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' PASSWORD EXPIRE ACCOUNT LOCK';
+            ELSIF v_auth_type NOT LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
+                EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
+            END IF;
+        END LOOP;
+    END IF;
 END;
 /
-EXIT;
-
-DECLARE
-    users_list VARCHAR2(1000) := '&1';
-    v_username VARCHAR2(30);
-    v_status VARCHAR2(30);
-    v_auth_type VARCHAR2(30);
-    v_sga_target VARCHAR2(30);
-BEGIN
-    SELECT value INTO v_sga_target FROM v$parameter WHERE name = 'sga_target';
-    
-    FOR rec IN (
-        SELECT username, account_status, authentication_type
-        FROM dba_users
-        WHERE authentication_type LIKE '%PASSWORD%'
-        AND username IN (
-            SELECT regexp_substr(users_list,'[^,]+', 1, level) 
-            FROM dual 
-            CONNECT BY regexp_substr(users_list, '[^,]+', 1, level) IS NOT NULL
-        )
-        -- Use the fetched parameter in the condition, for example:
-        AND profile = v_sga_target
-    )
-    LOOP
-        v_username := rec.username;
-        v_status := rec.account_status;
-        v_auth_type := rec.authentication_type;
-
-        IF v_auth_type LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
-            EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' PASSWORD EXPIRE ACCOUNT LOCK';
-        ELSIF v_auth_type NOT LIKE '%PASSWORD%' AND v_status NOT LIKE '%LOCK%' THEN
-            EXECUTE IMMEDIATE 'ALTER USER ' || v_username || ' ACCOUNT LOCK';
-        END IF;
-    END LOOP;
-END;
-/
-EXIT;
