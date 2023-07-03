@@ -6,7 +6,8 @@ BEGIN
     FOR rec IN (SELECT username, account_status, authentication_type
                 FROM dba_users
                 WHERE authentication_type LIKE '%PASSWORD%'
-                AND username IN ('USER1', 'USER2', 'USER3', 'GGSYS'))
+                AND username IN ('USER1', 'USER2', 'USER3', '"C##CVBACKUP"', 'GGSYS'))
+
     LOOP
         v_username := rec.username;
         v_status := rec.account_status;
