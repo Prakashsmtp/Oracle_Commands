@@ -63,3 +63,9 @@ BEGIN
 END;
 /
 EXIT;
+
+
+PROMPT <style>
+PROMPT table {background-color: lightgray; border: 2px solid black; border-collapse: collapse;}
+PROMPT th, td {border: 1px solid black;}
+PROMPT </style>
