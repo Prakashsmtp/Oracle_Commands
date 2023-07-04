@@ -1,0 +1,42 @@
+SELECT
+    TO_CHAR(begin_interval_time,'MM-DD-YYYY HH24:MI:SS') "Snapshot Start Time",
+    ROUND((SUM(DECODE(stat_name, 'db block changes', value, 0)) +
+           SUM(DECODE(stat_name, 'consistent gets', value, 0)) +
+           SUM(DECODE(stat_name, 'physical reads', value, 0))) /
+    GREATEST(EXTRACT( DAY FROM (end_interval_time - begin_interval_time)) * 86400
+    + EXTRACT( HOUR FROM (end_interval_time - begin_interval_time)) * 3600
+    + EXTRACT( MINUTE FROM (end_interval_time - begin_interval_time)) * 60
+    + EXTRACT( SECOND FROM (end_interval_time - begin_interval_time)), 1)) "IOPS"
+FROM
+    dba_hist_snapshot NATURAL JOIN dba_hist_sysstat
+WHERE
+    stat_name IN ('db block changes', 'consistent gets', 'physical reads')
+    AND begin_interval_time BETWEEN TO_DATE('07/01/2023','MM/DD/YYYY') AND TO_DATE('07/04/2023','MM/DD/YYYY')
+GROUP BY
+    begin_interval_time,
+    end_interval_time
+ORDER BY
+    begin_interval_time;
+
+
+
+
+
+SELECT
+    TO_CHAR(begin_interval_time,'MM-DD-YYYY HH24:MI:SS') "Snapshot Start Time",
+    ROUND((SUM(db_block_changes_delta) + SUM(consistent_gets_delta) + SUM(physical_reads_delta)) /
+    GREATEST(EXTRACT( DAY FROM (end_interval_time - begin_interval_time)) * 86400
+    + EXTRACT( HOUR FROM (end_interval_time - begin_interval_time)) * 3600
+    + EXTRACT( MINUTE FROM (end_interval_time - begin_interval_time)) * 60
+    + EXTRACT( SECOND FROM (end_interval_time - begin_interval_time)), 1)) "IOPS"
+FROM
+    dba_hist_snapshot NATURAL JOIN dba_hist_sysstat
+WHERE
+    stat_name IN ('db block changes', 'consistent gets', 'physical reads')
+    AND begin_interval_time BETWEEN TO_DATE('01/01/2022','MM/DD/YYYY') AND TO_DATE('12/31/2022','MM/DD/YYYY')
+GROUP BY
+    begin_interval_time,
+    end_interval_time
+ORDER BY
+    begin_interval_time;
+
